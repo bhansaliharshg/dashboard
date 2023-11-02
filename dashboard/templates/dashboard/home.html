@@ -32,12 +32,6 @@
 					if(!district[feedback.disctrict].includes(feedback.name_of_block) && !garbage_values.includes(feedback.name_of_block))
 						district[feedback.disctrict].push(feedback.name_of_block);
 				});
-				/* if(!statesAndDistricts[feedback.state].districts.includes(feedback.disctrict) && !garbage_values.includes(feedback.disctrict)) {
-					statesAndDistricts[feedback.state].districts.push(feedback.disctrict);
-				}
-				if(!statesAndDistricts[feedback.state].blocks.includes(feedback.name_of_block) && !garbage_values.includes(feedback.name_of_block)) {
-					statesAndDistricts[feedback.state].blocks.push(feedback.name_of_block);
-				} */
 			} else {
 				statesAndDistricts[feedback.state] = [];
 				var district = {}
@@ -192,7 +186,6 @@
 		var selectedBlock = document.getElementById("block").value;
 		var selectedFromDate = document.getElementById("fromDate").value;
 		var selectedToDate = document.getElementById("toDate").value;
-		//feedbacks = JSON.parse(JSON.stringify(allFeedbacks));
 		if (selectedState){
 			feedbacks = feedbacks.filter(feedback => feedback.state == selectedState);
 			if(selectedDistrict) {
@@ -214,6 +207,34 @@
 		document.getElementById("block").disabled = true;
 		document.getElementById("fromDate").value = null;
 		document.getElementById("toDate").value = null;
+		feedbacks = JSON.parse(JSON.stringify(allFeedbacks));
+		prepareDataAndLoadChart();
+	}
+
+	function uploadFile(){
+		var state = document.getElementById("loadData_state").value;
+		if (state) {
+			var file = document.getElementById("tsvFile").files[0];
+			console.log(file);
+			var formData = new FormData()
+			formData.append('file', file)
+			document.getElementById('success').innerHTML = 'File Uploaded Successfully!';
+			setTimeout(() => {
+				document.getElementById('success').innerHTML = '';
+			}, 5000);
+		} else {
+			document.getElementById('error').innerHTML = 'State cannot be empty';
+			setTimeout(() => {
+				document.getElementById('error').innerHTML = '';
+			}, 5000);
+		}
+	}
+
+	function resetUploadFile() {
+		document.getElementById('error').innerHTML = '';
+		document.getElementById('success').innerHTML = '',
+		document.getElementById('loadData_state').selectedIndex = 0;
+		document.getElementById('tsvFile').value = null;
 	}
 
 function loadCharts() {
@@ -391,33 +412,6 @@ var groupsChart = new CanvasJS.Chart("chartForGroups", {
   sentimentChart.render();
 
 }
-
-
-	function uploadFile(){
-		var state = document.getElementById("loadData_state").value;
-		if (state) {
-			var file = document.getElementById("tsvFile").files[0];
-			console.log(file);
-			var formData = new FormData()
-			formData.append('file', file)
-			document.getElementById('success').innerHTML = 'File Uploaded Successfully!';
-			setTimeout(() => {
-				document.getElementById('success').innerHTML = '';
-			}, 5000);
-		} else {
-			document.getElementById('error').innerHTML = 'State cannot be empty';
-			setTimeout(() => {
-				document.getElementById('error').innerHTML = '';
-			}, 5000);
-		}
-	}
-
-	function resetUploadFile() {
-		document.getElementById('error').innerHTML = '';
-		document.getElementById('success').innerHTML = '',
-		document.getElementById('loadData_state').selectedIndex = 0;
-		document.getElementById('tsvFile').value = null;
-	}
 
 	function getCookie(name) {
 		var value = "; " + document.cookie;
