@@ -20,6 +20,3 @@ class Feedback(models.Model):
     state = models.CharField(max_length=100)
     date_received = models.DateField()
     disctrict = models.CharField(max_length=100)
-
-    def __str__(self) -> str:
-        return str(self.id)+' '+self.state+' '+self.disctrict+' '+self.name_of_block+' '+self.name_of_school+' '+self.teacher_name

@@ -7,46 +7,249 @@
 	var sentimentChart;
 	var initiativeChart;
 	var questionsChart;
-window.onload = function () {
- loadCharts();
-}
+	var allFeedbacks;
+	var feedbacks;
+	var totalFeedbacks;
+	var statesAndDistricts;
+	var studentSentiments;
+	var takesInitiative;
+	var frequencyOfQuestionsAsked;
+	var totalStudents;
+	var maleAttendance;
+	var femaleAttendance;
+	var totalAttendance;
+	var totalGroupsFormed;
+	var totalGroupsCompletedActivity;
+
+	function getStatesAndDistricts() {
+		var garbage_values = ["NA", "", "N/A", "#N/A", "N\A","#N\A"]
+		statesAndDistricts = {}
+		feedbacks.forEach(function(feedback){
+			if(feedback.state in statesAndDistricts){
+				statesAndDistricts[feedback.state].forEach(district => {
+					if(!district[feedback.disctrict] && !garbage_values.includes(feedback.disctrict))
+						district[feedback.disctrict] = [];
+					if(!district[feedback.disctrict].includes(feedback.name_of_block) && !garbage_values.includes(feedback.name_of_block))
+						district[feedback.disctrict].push(feedback.name_of_block);
+				});
+				/* if(!statesAndDistricts[feedback.state].districts.includes(feedback.disctrict) && !garbage_values.includes(feedback.disctrict)) {
+					statesAndDistricts[feedback.state].districts.push(feedback.disctrict);
+				}
+				if(!statesAndDistricts[feedback.state].blocks.includes(feedback.name_of_block) && !garbage_values.includes(feedback.name_of_block)) {
+					statesAndDistricts[feedback.state].blocks.push(feedback.name_of_block);
+				} */
+			} else {
+				statesAndDistricts[feedback.state] = [];
+				var district = {}
+				district[feedback.disctrict] = [feedback.name_of_block];
+				statesAndDistricts[feedback.state].push(district);
+				console.log(statesAndDistricts);
+			}
+		});
+		populateState();
+		console.log(statesAndDistricts);
+		return statesAndDistricts;
+	}
+
+	function populateState(){
+		var selectStateElement = document.getElementById('state');
+		selectStateElement.innerHTML = ''
+		var defaultOption = new Option("Select a State", "");
+		selectStateElement.appendChild(defaultOption);
+		Object.keys(statesAndDistricts).forEach(key => {
+			var option = new Option(key, key);
+			selectStateElement.appendChild(option);
+		});
+	}
+
+	function populateDistricts() {
+		var selectedState = document.getElementById('state').value;
+		var districtElement = document.getElementById('district');
+		districtElement.innerHTML = '';
+		districtElement.appendChild(new Option("Select a District", ""));
+		if(selectedState) {
+			districtElement.disabled = false;
+			statesAndDistricts[selectedState].forEach(district => {
+				districtElement.appendChild(new Option(Object.keys(district)[0], Object.keys(district)[0]));
+			});
+		} else {
+			districtElement.disabled = true;
+		}
+	}
+
+	function populateBlocks(){
+		var selectedState = document.getElementById('state').value;
+		var selectedDistrict = document.getElementById('district').value;
+
+		var blockElement = document.getElementById('block');
+		blockElement.innerHTML = '';
+		blockElement.appendChild(new Option("Select a Block", ""));
+		if(selectedState && selectedDistrict) {
+			blockElement.disabled = false;
+			statesAndDistricts[selectedState].forEach(district => {
+				if(Object.keys(district)[0] == selectedDistrict) {
+					district[selectedDistrict].forEach(block => {
+						blockElement.appendChild(new Option(block, block));
+					});
+				}
+			});
+		} else {
+			blockElement.disabled = true;
+		}
+	}
+
+	function prepareDataForPieChart(isPercentage, value) {
+		var total_records = 100;
+		if (isPercentage) {
+			total_records = feedbacks.length;
+		}
+		var field = []
+		var field_dict = {}
+		feedbacks.forEach(feedback => {
+			if(!field_dict[feedback[value]]){
+				field_dict[feedback[value]] = 0
+			}
+			field_dict[feedback[value]] += 1
+		});
+		Object.keys(field_dict).forEach(key => {
+			field.push({'label':key,'y':field_dict[key]*100/total_records});
+		});
+		return field;
+	}
+
+	function getStudentSentiments(){
+		return prepareDataForPieChart(true, 'student_sentiment_after_class');
+	}
+
+	function getInitiatives(){
+		return prepareDataForPieChart(true, 'initiative_taken_by');
+	}
+
+	function getFrequencyOfQuestionsAsked(){
+		return prepareDataForPieChart(false, 'do_students_ask_questions');
+	}
+
+	function prepareDataForColumnChart(isForMale, fields) {
+		var field = []
+		var field_dict = {}
+		feedbacks.forEach(feedback => {
+			var date = feedback.date_received.split('T')[0];
+			if(!field_dict[date]) {
+				field_dict[date] = 0;
+			}
+			if(isForMale) {
+				field_dict[date] += feedback[fields[0]] - feedback[fields[1]];
+			} else {
+				field_dict[date] += feedback[fields[0]];
+			}
+		});
+		Object.keys(field_dict).forEach(key => {
+			field.push({'label':key,'y':field_dict[key]});
+		});
+		return field;
+	}
+
+	function getAttendance() {
+		totalStudents = 0;
+		var totalFemaleStudents = 0;
+		feedbacks.forEach(feedback => {
+			totalStudents += feedback.total_students;
+			totalFemaleStudents += feedback.total_female_students;
+		});
+		totalAttendance = [
+			{ "name": "Male Attendance", "y": totalStudents - totalFemaleStudents, "color": "#DF7970"},
+			{ "name": "Female Attendance", "y": totalFemaleStudents, "color": "#4C9CA0"}
+		];
+		maleAttendance = prepareDataForColumnChart(true, ['total_students','total_female_students']);
+		console.log(maleAttendance);
+		femaleAttendance = prepareDataForColumnChart(false, ['total_students']);
+	}
+
+	function getGroups() {
+		totalGroupsFormed = prepareDataForColumnChart(false, ['total_groups_formed']);
+		totalGroupsCompletedActivity = prepareDataForColumnChart(false, ['total_groups_completed_activity']);
+	}
+	
+	window.onload = function () {
+		allFeedbacks = JSON.parse('{{all_data|escapejs}}');
+		feedbacks = JSON.parse(JSON.stringify(allFeedbacks));
+		statesAndDistricts = getStatesAndDistricts();
+		prepareDataAndLoadChart();
+	}
+
+	function prepareDataAndLoadChart() {
+		studentSentiments = getStudentSentiments();
+		takesInitiative = getInitiatives();
+		frequencyOfQuestionsAsked = getFrequencyOfQuestionsAsked();
+		getAttendance();
+		getGroups();
+ 		loadCharts();
+	}
+
+	function sendFormData() {
+		var selectedState = document.getElementById("state").value;
+		var selectedDistrict = document.getElementById("district").value;
+		var selectedBlock = document.getElementById("block").value;
+		var selectedFromDate = document.getElementById("fromDate").value;
+		var selectedToDate = document.getElementById("toDate").value;
+		//feedbacks = JSON.parse(JSON.stringify(allFeedbacks));
+		if (selectedState){
+			feedbacks = feedbacks.filter(feedback => feedback.state == selectedState);
+			if(selectedDistrict) {
+				feedbacks = feedbacks.filter(feedback => feedback.disctrict == selectedDistrict);
+			}
+			if (selectedBlock) {
+				feedbacks = feedbacks.filter(feedback => feedback.name_of_block == selectedBlock);
+			}
+			prepareDataAndLoadChart();
+		}
+		feedbacks = JSON.parse(JSON.stringify(allFeedbacks));
+	}
+
+	function resetFormData() {
+		document.getElementById("state").value = '';
+		document.getElementById("district").disabled = true;
+		document.getElementById("district").value = '';
+		document.getElementById("block").value = '';
+		document.getElementById("block").disabled = true;
+		document.getElementById("fromDate").value = null;
+		document.getElementById("toDate").value = null;
+	}
 
 function loadCharts() {
-var totalVisitors = {{totalAttendance}};
-console.log('TV ',totalVisitors);
-var visitorsData = {
-	"Male VS Female Attendance": [
-    {
-        click: visitorsChartDrilldownHandler,
-        cursor: "pointer",
-        explodeOnClick: false,
-        innerRadius: "75%",
-        legendMarkerType: "square",
-        name: "Male VS Female Attendance",
-        radius: "100%",
-        showInLegend: true,
-        startAngle: 90,
-        type: "pie",
-        dataPoints: {{ new_vs_returning_visitors|safe }}
-    }],
-	"Male Attendance": [{
-		color: "#DF7970",
-		name: "Male Attendance",
-		type: "column",
-		xValueType: "dateTime",
-		dataPoints: {{ new_visitors|safe }}
-	}],
-	"Female Attendance": [
-    {
-		color: "#4C9CA0",
-		name: "Female Attendance",
-		type: "column",
-		xValueType: "dateTime",
-		dataPoints: {{ returning_visitors|safe }}
-	}]
+	var attendanceData = {
+		"Male VS Female Attendance": [
+		{
+        	click: visitorsChartDrilldownHandler,
+        	cursor: "pointer",
+        	explodeOnClick: false,
+        	innerRadius: "75%",
+        	legendMarkerType: "square",
+        	name: "Male VS Female Attendance",
+        	radius: "100%",
+        	showInLegend: true,
+        	startAngle: 90,
+        	type: "pie",
+        	dataPoints: totalAttendance
+    	}],
+		"Male Attendance": [{
+			color: "#DF7970",
+			name: "Male Attendance",
+			type: "column",
+			xValueType: "dateTime",
+			dataPoints: maleAttendance
+		}],
+		"Female Attendance": [
+    	{
+			color: "#4C9CA0",
+			name: "Female Attendance",
+			type: "column",
+			xValueType: "dateTime",
+			dataPoints: femaleAttendance
+		}]
 };
  
-var newVSReturningVisitorsOptions = {
+var totalAttendanceOptions = {
 	theme: "light2",
 	title: {
 		text: "Male VS Female Attendance"
@@ -62,14 +265,14 @@ var newVSReturningVisitorsOptions = {
 		fontFamily: "calibri",
 		fontSize: 14,
 		itemTextFormatter: function (e) {
-			return e.dataPoint.name + ": " + Math.round(e.dataPoint.y / totalVisitors * 100) + "%";
+			return e.dataPoint.name + ": " + Math.round(e.dataPoint.y / totalStudents * 100) + "%";
 		}
 	},
 	data: []
 };
  
-var visitorsDrilldownedChartOptions = {
-	animationEnabled: true,
+var attendanceDrilldownedChartOptions = {
+	//animationEnabled: true,
 	theme: "light2",
 	axisX: {
 		labelFontColor: "#717171",
@@ -87,13 +290,13 @@ var visitorsDrilldownedChartOptions = {
 	data: []
 };
  
-var attendanceChart = new CanvasJS.Chart("chartContainer", newVSReturningVisitorsOptions);
-attendanceChart.options.data = visitorsData["Male VS Female Attendance"];
+var attendanceChart = new CanvasJS.Chart("chartContainer", totalAttendanceOptions);
+attendanceChart.options.data = attendanceData["Male VS Female Attendance"];
 attendanceChart.render();
  
 function visitorsChartDrilldownHandler(e) {
-	attendanceChart = new CanvasJS.Chart("chartContainer", visitorsDrilldownedChartOptions);
-	attendanceChart.options.data = visitorsData[e.dataPoint.name];
+	attendanceChart = new CanvasJS.Chart("chartContainer", attendanceDrilldownedChartOptions);
+	attendanceChart.options.data = attendanceData[e.dataPoint.name];
 	attendanceChart.options.title = { text: e.dataPoint.name }
 	attendanceChart.render();
 	$("#backButton").toggleClass("invisible");
@@ -101,13 +304,13 @@ function visitorsChartDrilldownHandler(e) {
  
 $("#backButton").click(function () {
 	$(this).toggleClass("invisible");
-	attendanceChart = new CanvasJS.Chart("chartContainer", newVSReturningVisitorsOptions);
-	attendanceChart.options.data = visitorsData["Male VS Female Attendance"];
+	attendanceChart = new CanvasJS.Chart("chartContainer", totalAttendanceOptions);
+	attendanceChart.options.data = attendanceData["Male VS Female Attendance"];
 	attendanceChart.render();
 });
 
 var groupsChart = new CanvasJS.Chart("chartForGroups", {
-    animationEnabled: true,
+    //animationEnabled: true,
     //exportEnabled: true,
     theme: "light2",
     title:{
@@ -129,20 +332,20 @@ var groupsChart = new CanvasJS.Chart("chartForGroups", {
       showInLegend: true,
       color: "#1565C0",
       toolTipContent: "{label} <br/> <span style='\"'color: {color};'\"'>{name}</span> <strong>{y} (#percent%)</strong>",
-      dataPoints: {{ groups_formed|safe }}
+      dataPoints: totalGroupsFormed
     },{
       type: "stackedColumn100",
       name: "Groups Completed activities",
       showInLegend: true,
       color: "#2196F3",
       toolTipContent: "<span style='\"'color: {color};'\"'>{name}</span> <strong>{y} (#percent%)</strong>",
-      dataPoints: {{ groups_completed_activity|safe }}
+      dataPoints: totalGroupsCompletedActivity
     }]
   });
   groupsChart.render();
 
   questionsChart = new CanvasJS.Chart("questionAskedContainer", {
-	animationEnabled: true,
+	//animationEnabled: true,
 	title:{
 	  text: "Questions Asked In Class",
 	  fontFamily: "Tahoma"
@@ -152,13 +355,13 @@ var groupsChart = new CanvasJS.Chart("chartForGroups", {
 	},
 	data: [{
 	  type: "column",
-	  dataPoints: {{ questions_asked|safe }}
+	  dataPoints: frequencyOfQuestionsAsked
 	}]
   });
   questionsChart.render();
 
   initiativeChart = new CanvasJS.Chart("initiativeChartContainer", {
-	animationEnabled: true,
+	//animationEnabled: true,
 	title: {
 	  text: "Initiative Distribution"
 	},
@@ -167,13 +370,13 @@ var groupsChart = new CanvasJS.Chart("chartForGroups", {
 	  legendText: "{label}",
 	  yValueFormatString: "###.##\"%\"",
 	  indexLabel: "{label} ({y})",
-	  dataPoints: {{ takes_intiative|safe }}
+	  dataPoints: takesInitiative
 	}]
   });
   initiativeChart.render();
 
   sentimentChart = new CanvasJS.Chart("sentimentChartContainer", {
-	animationEnabled: true,
+	//animationEnabled: true,
 	title: {
 	  text: "Sentiment After Class"
 	},
@@ -182,99 +385,13 @@ var groupsChart = new CanvasJS.Chart("chartForGroups", {
 	  legendText: "{label}",
 	  yValueFormatString: "###.##\"%\"",
 	  indexLabel: "{label} ({y})",
-	  dataPoints: {{ students_sentiment|safe }}
+	  dataPoints: studentSentiments
 	}]
   });
   sentimentChart.render();
 
 }
-	var states_and_districts = {{states_and_districts | safe}}
-	function getDistricts() {
-		selectedState = document.getElementById("state").value;
-		districtElement = document.getElementById("district")
-		blockElement = document.getElementById("block")
-		if(selectedState!="") {
-			districtElement.disabled = false;
-			blockElement.disabled = false;
-			for(var i=0;i<states_and_districts.length;i++) {
-				if(states_and_districts[i].state == selectedState) {
-					districtElement.innerHTML = ''
-					var defaultOption = new Option("Select a District", "");
-					districtElement.appendChild(defaultOption);
-					blockElement.innerHTML = ''
-					defaultOption = new Option("Select a Block", "");
-					blockElement.appendChild(defaultOption);
-					var districts = states_and_districts[i].districts
-					var blocks = states_and_districts[i].blocks
-					districts.forEach(function(district){
-						var option = new Option(district, district);
-						districtElement.appendChild(option)
-					});
-					blocks.forEach(function(block){
-						var option = new Option(block, block);
-						blockElement.appendChild(option);
-					});
-				}
-			}
-		} else {
-			districtElement.disabled = true;
-			districtElement.innerHTML = '';
-			var defaultOption = new Option("Select a District", "");
-			districtElement.appendChild(defaultOption);
-			blockElement.disabled = true;
-			blockElement.innerHTML = '';
-			defaultOption = new Option("Select a Block", "");
-			blockElement.appendChild(defaultOption);
-		}
-	}
 
-	function sendFormData() {
-		var selectedState = document.getElementById("state").value;
-		var selectedDistrict = document.getElementById("district").value;
-		var selectedBlock = document.getElementById("block").value;
-		var selectedFromDate = document.getElementById("fromDate").value;
-		var selectedToDate = document.getElementById("toDate").value;
-		if (selectedState){
-			query = '?state='+selectedState;
-			if (selectedDistrict){
-				query += '&district='+selectedDistrict;
-			}
-			if (selectedBlock){
-				query += '&block='+selectedBlock;
-			}
-			if (selectedFromDate) {
-				query += '&fromDate='+selectedFromDate;
-			}
-			if(selectedToDate) {
-				query += '&toDate='+selectedToDate;
-			}
-			console.log(query);
-			fetch(query, {
-				method: 'GET',
-				headers: {
-					"Content-Type": "application/json",
-					"X-CSRFToken": getCookie("csrftoken")
-				}
-			}).then(response => {
-				console.log('HERE');
-			}).then(data => {
-				console.log(data);
-				loadCharts();
-			});
-		} else {
-
-		}
-	}
-
-	function resetFormData() {
-		document.getElementById("state").value = '';
-		document.getElementById("district").disabled = true;
-		document.getElementById("district").value = '';
-		document.getElementById("block").value = '';
-		document.getElementById("block").disabled = true;
-		document.getElementById("fromDate").value = null;
-		document.getElementById("toDate").value = null;
-	}
 
 	function uploadFile(){
 		var state = document.getElementById("loadData_state").value;
@@ -283,17 +400,6 @@ var groupsChart = new CanvasJS.Chart("chartForGroups", {
 			console.log(file);
 			var formData = new FormData()
 			formData.append('file', file)
-			/* fetch('', {
-				method: "POST",
-				body: formData,
-				headers: {
-					"X-CSRFToken": getCookie("csrftoken")
-				}
-			})
-			.then(response => response.json())
-			.then(data => {
-				document.getElementById("result").textContent = data.message;
-			});*/
 			document.getElementById('success').innerHTML = 'File Uploaded Successfully!';
 			setTimeout(() => {
 				document.getElementById('success').innerHTML = '';
@@ -354,16 +460,11 @@ button {
 			<div class="row">
 				<div class="col-xs-12 col-sm-2 col-lg-2 mb-3">
 					<label for="state" class="form-label">State</label>
-					<select class="form-select" id="state" name="state" onchange="getDistricts()">
-						<option selected value="">Select a State</option>
-						{% for values in states_and_districts %}
-						<option value={{values.state}}>{{values.state}}</option>
-						{% endfor %}
-					</select>
+					<select class="form-select" id="state" name="state" onchange="populateDistricts()"></select>
 				  </div>
 				  <div class="col-xs-12 col-sm-2 col-lg-2 mb-3">
 					<label for="district" class="form-label">District</label>
-					<select class="form-select" id="district" name="district" disabled="true">
+					<select class="form-select" id="district" name="district" disabled="true" onchange="populateBlocks()">
 						<option selected value="">Select a District</option>
 					</select>
 				  </div>
