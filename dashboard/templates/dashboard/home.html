@@ -1,0 +1,463 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<title>CanvasJS Python Charts</title>
+<script>
+
+	var sentimentChart;
+	var initiativeChart;
+	var questionsChart;
+window.onload = function () {
+ loadCharts();
+}
+
+function loadCharts() {
+var totalVisitors = {{totalAttendance}};
+console.log('TV ',totalVisitors);
+var visitorsData = {
+	"Male VS Female Attendance": [
+    {
+        click: visitorsChartDrilldownHandler,
+        cursor: "pointer",
+        explodeOnClick: false,
+        innerRadius: "75%",
+        legendMarkerType: "square",
+        name: "Male VS Female Attendance",
+        radius: "100%",
+        showInLegend: true,
+        startAngle: 90,
+        type: "pie",
+        dataPoints: {{ new_vs_returning_visitors|safe }}
+    }],
+	"Male Attendance": [{
+		color: "#DF7970",
+		name: "Male Attendance",
+		type: "column",
+		xValueType: "dateTime",
+		dataPoints: {{ new_visitors|safe }}
+	}],
+	"Female Attendance": [
+    {
+		color: "#4C9CA0",
+		name: "Female Attendance",
+		type: "column",
+		xValueType: "dateTime",
+		dataPoints: {{ returning_visitors|safe }}
+	}]
+};
+ 
+var newVSReturningVisitorsOptions = {
+	theme: "light2",
+	title: {
+		text: "Male VS Female Attendance"
+	},
+	subtitles: [{
+		text: "Click on Any Segment to Drilldown",
+		backgroundColor: "#4C9CA0",
+		fontSize: 16,
+		fontColor: "white",
+		padding: 5
+	}],
+	legend: {
+		fontFamily: "calibri",
+		fontSize: 14,
+		itemTextFormatter: function (e) {
+			return e.dataPoint.name + ": " + Math.round(e.dataPoint.y / totalVisitors * 100) + "%";
+		}
+	},
+	data: []
+};
+ 
+var visitorsDrilldownedChartOptions = {
+	animationEnabled: true,
+	theme: "light2",
+	axisX: {
+		labelFontColor: "#717171",
+		lineColor: "#a2a2a2",
+		tickColor: "#a2a2a2"
+	},
+	axisY: {
+		gridThickness: 0,
+		includeZero: false,
+		labelFontColor: "#717171",
+		lineColor: "#a2a2a2",
+		tickColor: "#a2a2a2",
+		lineThickness: 1
+	},
+	data: []
+};
+ 
+var attendanceChart = new CanvasJS.Chart("chartContainer", newVSReturningVisitorsOptions);
+attendanceChart.options.data = visitorsData["Male VS Female Attendance"];
+attendanceChart.render();
+ 
+function visitorsChartDrilldownHandler(e) {
+	attendanceChart = new CanvasJS.Chart("chartContainer", visitorsDrilldownedChartOptions);
+	attendanceChart.options.data = visitorsData[e.dataPoint.name];
+	attendanceChart.options.title = { text: e.dataPoint.name }
+	attendanceChart.render();
+	$("#backButton").toggleClass("invisible");
+}
+ 
+$("#backButton").click(function () {
+	$(this).toggleClass("invisible");
+	attendanceChart = new CanvasJS.Chart("chartContainer", newVSReturningVisitorsOptions);
+	attendanceChart.options.data = visitorsData["Male VS Female Attendance"];
+	attendanceChart.render();
+});
+
+var groupsChart = new CanvasJS.Chart("chartForGroups", {
+    animationEnabled: true,
+    //exportEnabled: true,
+    theme: "light2",
+    title:{
+      text: "Groups"
+    },
+    axisY:{
+      suffix: "%"
+    },
+    axisX: {
+      labelAngle: 0,
+      labelTextAlign: "center"
+    },
+    toolTip: {
+      shared: true
+    },
+    data: [{
+      type: "stackedColumn100",
+      name: "Groups Created",
+      showInLegend: true,
+      color: "#1565C0",
+      toolTipContent: "{label} <br/> <span style='\"'color: {color};'\"'>{name}</span> <strong>{y} (#percent%)</strong>",
+      dataPoints: {{ groups_formed|safe }}
+    },{
+      type: "stackedColumn100",
+      name: "Groups Completed activities",
+      showInLegend: true,
+      color: "#2196F3",
+      toolTipContent: "<span style='\"'color: {color};'\"'>{name}</span> <strong>{y} (#percent%)</strong>",
+      dataPoints: {{ groups_completed_activity|safe }}
+    }]
+  });
+  groupsChart.render();
+
+  questionsChart = new CanvasJS.Chart("questionAskedContainer", {
+	animationEnabled: true,
+	title:{
+	  text: "Questions Asked In Class",
+	  fontFamily: "Tahoma"
+	},
+	axisY: {
+	  title: "Frequency of questions"
+	},
+	data: [{
+	  type: "column",
+	  dataPoints: {{ questions_asked|safe }}
+	}]
+  });
+  questionsChart.render();
+
+  initiativeChart = new CanvasJS.Chart("initiativeChartContainer", {
+	animationEnabled: true,
+	title: {
+	  text: "Initiative Distribution"
+	},
+	data: [{
+	  type: "pie",
+	  legendText: "{label}",
+	  yValueFormatString: "###.##\"%\"",
+	  indexLabel: "{label} ({y})",
+	  dataPoints: {{ takes_intiative|safe }}
+	}]
+  });
+  initiativeChart.render();
+
+  sentimentChart = new CanvasJS.Chart("sentimentChartContainer", {
+	animationEnabled: true,
+	title: {
+	  text: "Sentiment After Class"
+	},
+	data: [{
+	  type: "pie",
+	  legendText: "{label}",
+	  yValueFormatString: "###.##\"%\"",
+	  indexLabel: "{label} ({y})",
+	  dataPoints: {{ students_sentiment|safe }}
+	}]
+  });
+  sentimentChart.render();
+
+}
+	var states_and_districts = {{states_and_districts | safe}}
+	function getDistricts() {
+		selectedState = document.getElementById("state").value;
+		districtElement = document.getElementById("district")
+		blockElement = document.getElementById("block")
+		if(selectedState!="") {
+			districtElement.disabled = false;
+			blockElement.disabled = false;
+			for(var i=0;i<states_and_districts.length;i++) {
+				if(states_and_districts[i].state == selectedState) {
+					districtElement.innerHTML = ''
+					var defaultOption = new Option("Select a District", "");
+					districtElement.appendChild(defaultOption);
+					blockElement.innerHTML = ''
+					defaultOption = new Option("Select a Block", "");
+					blockElement.appendChild(defaultOption);
+					var districts = states_and_districts[i].districts
+					var blocks = states_and_districts[i].blocks
+					districts.forEach(function(district){
+						var option = new Option(district, district);
+						districtElement.appendChild(option)
+					});
+					blocks.forEach(function(block){
+						var option = new Option(block, block);
+						blockElement.appendChild(option);
+					});
+				}
+			}
+		} else {
+			districtElement.disabled = true;
+			districtElement.innerHTML = '';
+			var defaultOption = new Option("Select a District", "");
+			districtElement.appendChild(defaultOption);
+			blockElement.disabled = true;
+			blockElement.innerHTML = '';
+			defaultOption = new Option("Select a Block", "");
+			blockElement.appendChild(defaultOption);
+		}
+	}
+
+	function sendFormData() {
+		var selectedState = document.getElementById("state").value;
+		var selectedDistrict = document.getElementById("district").value;
+		var selectedBlock = document.getElementById("block").value;
+		var selectedFromDate = document.getElementById("fromDate").value;
+		var selectedToDate = document.getElementById("toDate").value;
+		if (selectedState){
+			query = '?state='+selectedState;
+			if (selectedDistrict){
+				query += '&district='+selectedDistrict;
+			}
+			if (selectedBlock){
+				query += '&block='+selectedBlock;
+			}
+			if (selectedFromDate) {
+				query += '&fromDate='+selectedFromDate;
+			}
+			if(selectedToDate) {
+				query += '&toDate='+selectedToDate;
+			}
+			console.log(query);
+			fetch(query, {
+				method: 'GET',
+				headers: {
+					"Content-Type": "application/json",
+					"X-CSRFToken": getCookie("csrftoken")
+				}
+			}).then(response => {
+				console.log('HERE');
+			}).then(data => {
+				console.log(data);
+				loadCharts();
+			});
+		} else {
+
+		}
+	}
+
+	function resetFormData() {
+		document.getElementById("state").value = '';
+		document.getElementById("district").disabled = true;
+		document.getElementById("district").value = '';
+		document.getElementById("block").value = '';
+		document.getElementById("block").disabled = true;
+		document.getElementById("fromDate").value = null;
+		document.getElementById("toDate").value = null;
+	}
+
+	function uploadFile(){
+		var state = document.getElementById("loadData_state").value;
+		if (state) {
+			var file = document.getElementById("tsvFile").files[0];
+			console.log(file);
+			var formData = new FormData()
+			formData.append('file', file)
+			/* fetch('', {
+				method: "POST",
+				body: formData,
+				headers: {
+					"X-CSRFToken": getCookie("csrftoken")
+				}
+			})
+			.then(response => response.json())
+			.then(data => {
+				document.getElementById("result").textContent = data.message;
+			});*/
+			document.getElementById('success').innerHTML = 'File Uploaded Successfully!';
+			setTimeout(() => {
+				document.getElementById('success').innerHTML = '';
+			}, 5000);
+		} else {
+			document.getElementById('error').innerHTML = 'State cannot be empty';
+			setTimeout(() => {
+				document.getElementById('error').innerHTML = '';
+			}, 5000);
+		}
+	}
+
+	function resetUploadFile() {
+		document.getElementById('error').innerHTML = '';
+		document.getElementById('success').innerHTML = '',
+		document.getElementById('loadData_state').selectedIndex = 0;
+		document.getElementById('tsvFile').value = null;
+	}
+
+	function getCookie(name) {
+		var value = "; " + document.cookie;
+		var parts = value.split("; " + name + "=");
+		if (parts.length == 2) return parts.pop().split(";").shift();
+	}
+</script>
+<style>
+#backButton {
+	border-radius: 4px;
+	padding: 8px;
+	border: none;
+	font-size: 16px;
+	background-color: #4C9CA0;
+	color: white;
+	cursor: pointer;
+}
+ 
+.invisible {
+	display: none;
+}
+button {
+	width: 100%;
+	height: auto;
+}
+</style>
+</head>
+<body>
+    <div class="container">
+        <div class="row" style="padding: 2rem 0rem 2rem 0rem;">
+			<div class="col-xs-12 col-sm-10 col-lg-10">
+				<h2>Feedback Form - Dashboard</h2> 
+			</div>
+			<div class="col-xs-12 col-sm-2 col-lg-2 mb-3" style="text-align: center; margin: auto;">
+				<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#staticBackdrop">
+					Upload
+				</button>
+			</div>
+        </div>
+			<div class="row">
+				<div class="col-xs-12 col-sm-2 col-lg-2 mb-3">
+					<label for="state" class="form-label">State</label>
+					<select class="form-select" id="state" name="state" onchange="getDistricts()">
+						<option selected value="">Select a State</option>
+						{% for values in states_and_districts %}
+						<option value={{values.state}}>{{values.state}}</option>
+						{% endfor %}
+					</select>
+				  </div>
+				  <div class="col-xs-12 col-sm-2 col-lg-2 mb-3">
+					<label for="district" class="form-label">District</label>
+					<select class="form-select" id="district" name="district" disabled="true">
+						<option selected value="">Select a District</option>
+					</select>
+				  </div>
+				  <div class="col-xs-12 col-sm-2 col-lg-2 mb-3">
+					<label for="block" class="form-label">Block</label>
+					<select class="form-select" id="block" name="block" disabled="true">
+						<option selected value="">Select a Block</option>
+					</select>
+				  </div>
+				  <div class="col-xs-12 col-sm-2 col-lg-2 mb-3">
+					<label for="fromDate" class="form-label">From Date</label>
+					<input type="date" class="form-control" id="fromDate" name="fromDate">
+				  </div>
+				  <div class="col-xs-12 col-sm-2 col-lg-2 mb-3">
+					<label for="toDate" class="form-label">To Date</label>
+					<input type="date" class="form-control" id="toDate" name="toDate">
+				  </div>
+				  <div class="col-xs-12 col-sm-1 col-lg-1 mb-3" style="text-align: center; margin: auto;">
+					<button class="btn btn-primary" onclick="sendFormData()">Filter</button>
+				  </div>
+				  <div class="col-xs-12 col-sm-1 col-lg-1 mb-3" style="text-align: center; margin: auto;">
+					<button class="btn btn-warning" onclick="resetFormData()">Reset</button>
+				  </div>
+			</div>
+        <div class="row">
+            <div class="col-xs-12 col-sm-4 col-lg-4">
+				<div id="initiativeChartContainer" style="height: 360px; width: 100%;"></div>
+            </div>
+            <div class="col-xs-12 col-sm-4 col-lg-4">
+                <div id="chartForGroups" style="height: 360px; width: 100%;"></div>
+            </div>
+			<div class="col-xs-12 col-sm-4 col-lg-4">
+                <div id="questionAskedContainer" style="width: 100%; height: 360px;"></div>
+            </div>
+        </div>
+		<div class="row">
+            <div class="col-xs-12 col-sm-6 col-lg-6">
+                <div id="chartContainer" style="height: 360px; width: 100%;"></div>
+                <button class="btn invisible" id="backButton">&lt; Back</button>
+            </div>
+            <div class="col-xs-12 col-sm-6 col-lg-6">
+                <div id="sentimentChartContainer" style="height: 360px; width: 100%;"></div>
+            </div>
+        </div>
+    </div>
+  
+  <!-- Modal -->
+  <div class="modal fade" id="staticBackdrop" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+	<div class="modal-dialog modal-dialog-centered">
+	  <div class="modal-content">
+		<div class="modal-header">
+			<h1 class="modal-title fs-5" id="exampleModalLabel">Upload Feedback form data file</h1>
+			<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+		</div>	
+		<div class="modal-body">
+			<div class="row" style="text-align: center;">
+				<div id="success" style="color: green;"></div>
+				<div id="error" style="color: red;"></div>
+			</div>
+				<div class="row">
+					<div class="col-xs-12 col-sm-12 col-lg-12 mb-3">
+						<div class="input-group">
+							<span class="input-group-text" for="loadData_state">State</span>
+							<select class="form-select" id="loadData_state" name="loadData_state">
+								<option selected value="">Select a State</option>
+								{% for state in all_states %}
+								<option values={{state}}>{{state}}</option>
+								{% endfor %}
+							</select>
+						</div>
+					</div>
+				</div>
+				<div class="row">
+					<div class="col-xs-12 col-sm-12 col-lg-12 mb-3">
+						<input class="form-control" type="file" id="tsvFile" accept=".tsv">
+						<label for="tsvFile" class="form-label" style="float: right; color: red;">only .tsv files accepted</label>
+					</div>
+				</div>
+				<div class="row" style="text-align: center; margin: auto;">
+					<div class="col-xs-12 col-sm-6 col-lg-6 mb-3">
+						<button class="btn btn-warning" onclick="resetUploadFile()">Reset</button>
+					</div>
+					<div class="col-xs-12 col-sm-6 col-lg-6 mb-3">
+						<button class="btn btn-primary" onclick="uploadFile()">Upload</button>
+					</div>
+				</div>
+		</div>
+	  </div>
+	</div>
+  </div>
+
+    <script src="https://canvasjs.com/assets/script/jquery-1.11.1.min.js"></script>
+    <script src="https://cdn.canvasjs.com/ga/canvasjs.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+</body>
+</html>                              
