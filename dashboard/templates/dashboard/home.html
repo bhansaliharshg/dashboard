@@ -189,6 +189,7 @@
 		var selectedBlock = document.getElementById("block").value;
 		var selectedFromDate = document.getElementById("fromDate").value;
 		var selectedToDate = document.getElementById("toDate").value;
+		console.log(selectedFromDate, selectedToDate);
 		if (selectedState){
 			feedbacks = feedbacks.filter(feedback => feedback.state == selectedState);
 			if(selectedDistrict) {
@@ -200,6 +201,12 @@
 			prepareDataAndLoadChart();
 		}
 		feedbacks = JSON.parse(JSON.stringify(allFeedbacks));
+	}
+
+	function dateValidations(startDate, endDate) {
+		const start = new Date(startDate);
+		const end = new Date(endDate);
+		return end < start;
 	}
 
 	function resetFormData() {

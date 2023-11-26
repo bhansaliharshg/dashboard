@@ -46,7 +46,7 @@ def index(request):
                             student_sentiment_after_class = data['student_sentiment_after_class'],
                             other_feedback = data['other_feedback'],
                             name_of_block = data['name_of_block'],
-                            state = state,
+                            state = data['state'],
                             date_received = data['date_received'] if data['date_received'] else datetime.strptime(dateString, '%m/%d/%Y'),
                             disctrict = data['disctrict']
                         )
