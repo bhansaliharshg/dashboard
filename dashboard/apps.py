@@ -33,6 +33,5 @@ class DashboardConfig(AppConfig):
                         date_received = values[15] if values[15] else datetime.strptime(dateString, '%m/%d/%Y'),
                         disctrict = values[16]
                     )
-                    print(feedback.timestamp, feedback.teacher_name)
                     feedback.save()
             print('Data Loaded to Database Successfully')

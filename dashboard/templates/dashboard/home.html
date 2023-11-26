@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html>
 <head>
-<title>CanvasJS Python Charts</title>
+<title>Feedback Form - Dashboard</title>
 <script>
 
 	var sentimentChart;
@@ -26,22 +26,26 @@
 		statesAndDistricts = {}
 		feedbacks.forEach(function(feedback){
 			if(feedback.state in statesAndDistricts){
-				statesAndDistricts[feedback.state].forEach(district => {
-					if(!district[feedback.disctrict] && !garbage_values.includes(feedback.disctrict))
-						district[feedback.disctrict] = [];
-					if(!district[feedback.disctrict].includes(feedback.name_of_block) && !garbage_values.includes(feedback.name_of_block))
-						district[feedback.disctrict].push(feedback.name_of_block);
-				});
+				var districts = statesAndDistricts[feedback.state];
+				if (districts.get(feedback.disctrict)) {
+					var blocks = districts.get(feedback.disctrict);
+					if (!garbage_values.includes(feedback.name_of_block) && !blocks.includes(feedback.name_of_block)) {
+						blocks.push(feedback.name_of_block);
+						districts.set(feedback.disctrict, blocks);
+					}
+				} else {
+					if (!garbage_values.includes(feedback.name_of_block))
+						districts.set(feedback.disctrict, [feedback.name_of_block]);
+					else
+						districts.set(feedback.disctrict, []);
+				}
 			} else {
-				statesAndDistricts[feedback.state] = [];
-				var district = {}
-				district[feedback.disctrict] = [feedback.name_of_block];
-				statesAndDistricts[feedback.state].push(district);
-				console.log(statesAndDistricts);
+				const map = new Map();
+				map.set(feedback.disctrict, [feedback.name_of_block])
+				statesAndDistricts[feedback.state] = map;
 			}
 		});
 		populateState();
-		console.log(statesAndDistricts);
 		return statesAndDistricts;
 	}
 
@@ -63,11 +67,11 @@
 		districtElement.appendChild(new Option("Select a District", ""));
 		if(selectedState) {
 			districtElement.disabled = false;
-			statesAndDistricts[selectedState].forEach(district => {
-				districtElement.appendChild(new Option(Object.keys(district)[0], Object.keys(district)[0]));
+			Array.from(statesAndDistricts[selectedState].keys()).forEach(district => {
+				districtElement.appendChild(new Option(district, district));
 			});
 		} else {
-			districtElement.disabled = true;
+			resetFormData();
 		}
 	}
 
@@ -80,12 +84,8 @@
 		blockElement.appendChild(new Option("Select a Block", ""));
 		if(selectedState && selectedDistrict) {
 			blockElement.disabled = false;
-			statesAndDistricts[selectedState].forEach(district => {
-				if(Object.keys(district)[0] == selectedDistrict) {
-					district[selectedDistrict].forEach(block => {
-						blockElement.appendChild(new Option(block, block));
-					});
-				}
+			statesAndDistricts[selectedState].get(selectedDistrict).forEach(block => {
+				blockElement.appendChild(new Option(block, block));
 			});
 		} else {
 			blockElement.disabled = true;
@@ -155,7 +155,6 @@
 			{ "name": "Female Attendance", "y": totalFemaleStudents, "color": "#4C9CA0"}
 		];
 		maleAttendance = prepareDataForColumnChart(true, ['total_students','total_female_students']);
-		console.log(maleAttendance);
 		femaleAttendance = prepareDataForColumnChart(false, ['total_students']);
 	}
 
@@ -165,6 +164,10 @@
 	}
 	
 	window.onload = function () {
+		document.querySelectorAll('[data-bs-toggle="tooltip"]')
+			.forEach(tooltip => {
+				new bootstrap.Tooltip(tooltip)
+		});
 		allFeedbacks = JSON.parse('{{all_data|escapejs}}');
 		feedbacks = JSON.parse(JSON.stringify(allFeedbacks));
 		statesAndDistricts = getStatesAndDistricts();
@@ -211,22 +214,102 @@
 		prepareDataAndLoadChart();
 	}
 
+	function parseTSV(data) {
+		const lines = data.split('\n');
+		const headers = [
+		"timestamp", "teacher_name", "name_of_school", "activity_covered", "total_students", "total_female_students",
+		"total_groups_formed", "total_groups_completed_activity", "do_students_form_groups", "do_students_ask_questions",
+		"initiative_taken_by", "student_sentiment_after_class", "other_feedback", "name_of_block", "state", "date_received", "disctrict"
+		]
+		const result = [];
+	
+		for (let i = 1; i < lines.length; i++) {
+			const values = lines[i].split('\t');
+			if (values.length === headers.length) {
+				const entry = {};
+				for (let j = 0; j < headers.length; j++) {
+					entry[headers[j]] = values[j].trim();
+				}
+				result.push(entry);
+			}
+		}
+		return result;
+	}
+
 	function uploadFile(){
 		var state = document.getElementById("loadData_state").value;
 		if (state) {
-			var file = document.getElementById("tsvFile").files[0];
-			console.log(file);
-			var formData = new FormData()
-			formData.append('file', file)
-			document.getElementById('success').innerHTML = 'File Uploaded Successfully!';
+			var fileSelector = document.getElementById("tsvFile");
+			const file = fileSelector.files[0];
+			if (file && file.type == "text/tab-separated-values") {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const fileContents = e.target.result;
+                    const data = parseTSV(fileContents);
+					const form = document.createElement('form');
+					form.method = "POST";
+					form.action = "";
+
+					const stateField = document.createElement('input')
+					stateField.type = "hidden";
+					stateField.name = "state";
+					stateField.value = state;
+					const hiddenField = document.createElement('input');
+					hiddenField.type = "hidden";
+					hiddenField.name = "file_data";
+					hiddenField.value = JSON.stringify(data);
+					const resetField = document.createElement('input');
+					resetField.type = "hidden";
+					resetField.name = "reset";
+					resetField.value = "False";
+
+					form.appendChild(stateField);
+					form.appendChild(hiddenField);
+					form.appendChild(resetField);
+					document.body.appendChild(form);
+					form.submit();
+                };
+                reader.readAsText(file);
+            } else {
+				document.getElementById('error').innerHTML = 'Check selected file type. Only \".tsv\" file allowed.';
 			setTimeout(() => {
-				document.getElementById('success').innerHTML = '';
-			}, 5000);
+				document.getElementById('error').innerHTML = '';
+			}, 5000);	
+			}
 		} else {
 			document.getElementById('error').innerHTML = 'State cannot be empty';
 			setTimeout(() => {
 				document.getElementById('error').innerHTML = '';
 			}, 5000);
+		}
+	}
+	function resetDashboard(){
+		const state = document.getElementById("resetData_state").value;
+		if(state) {
+			const form = document.createElement('form');
+			form.method = "POST";
+			form.action = "";
+
+			const stateField = document.createElement('input');
+			stateField.type = "hidden";
+			stateField.name = "state";
+			stateField.value = state;
+			const resetField = document.createElement('input');
+			resetField.type = "hidden";
+			resetField.name = "reset";
+			resetField.value = "True";
+
+			form.append(stateField);
+			form.append(resetField);
+			document.body.appendChild(form);
+			form.submit();
+
+		} else {
+			document.getElementById('reset_dashboard_error').innerHTML = 'State cannot be empty';
+			setTimeout(() => {
+				document.getElementById('reset_dashboard_error').innerHTML = '';
+			}, 5000);
+
 		}
 	}
 
@@ -440,61 +523,75 @@ button {
 </style>
 </head>
 <body>
-    <div class="container">
-        <div class="row" style="padding: 2rem 0rem 2rem 0rem;">
-			<div class="col-xs-12 col-sm-10 col-lg-10">
-				<h2>Feedback Form - Dashboard</h2> 
+	<div class="container">
+		<div class="row" style="padding: 2rem 0rem 2rem 0rem;">
+			<div class="col-xs-12 col-sm-8 col-lg-8">
+				<h2>Dashboard - Feedback Form</h2> 
 			</div>
 			<div class="col-xs-12 col-sm-2 col-lg-2 mb-3" style="text-align: center; margin: auto;">
 				<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#staticBackdrop">
 					Upload
 				</button>
 			</div>
-        </div>
-			<div class="row">
-				<div class="col-xs-12 col-sm-2 col-lg-2 mb-3">
-					<label for="state" class="form-label">State</label>
-					<select class="form-select" id="state" name="state" onchange="populateDistricts()"></select>
-				  </div>
-				  <div class="col-xs-12 col-sm-2 col-lg-2 mb-3">
-					<label for="district" class="form-label">District</label>
-					<select class="form-select" id="district" name="district" disabled="true" onchange="populateBlocks()">
-						<option selected value="">Select a District</option>
-					</select>
-				  </div>
-				  <div class="col-xs-12 col-sm-2 col-lg-2 mb-3">
-					<label for="block" class="form-label">Block</label>
-					<select class="form-select" id="block" name="block" disabled="true">
-						<option selected value="">Select a Block</option>
-					</select>
-				  </div>
-				  <div class="col-xs-12 col-sm-2 col-lg-2 mb-3">
-					<label for="fromDate" class="form-label">From Date</label>
-					<input type="date" class="form-control" id="fromDate" name="fromDate">
-				  </div>
-				  <div class="col-xs-12 col-sm-2 col-lg-2 mb-3">
-					<label for="toDate" class="form-label">To Date</label>
-					<input type="date" class="form-control" id="toDate" name="toDate">
-				  </div>
-				  <div class="col-xs-12 col-sm-1 col-lg-1 mb-3" style="text-align: center; margin: auto;">
-					<button class="btn btn-primary" onclick="sendFormData()">Filter</button>
-				  </div>
-				  <div class="col-xs-12 col-sm-1 col-lg-1 mb-3" style="text-align: center; margin: auto;">
-					<button class="btn btn-warning" onclick="resetFormData()">Reset</button>
-				  </div>
+			<div class="col-xs-12 col-sm-2 col-lg-2 mb-3" style="text-align: center; margin: auto;">
+				<button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#resetDashboard">
+					Reset Dashboard
+					<a href="#" data-bs-toggle="tooltip" data-bs-title="Use to delete data for a state" data-bs-placement="bottom">
+						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" class="bi bi-info-circle" viewBox="0 0 20 20">
+							<path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+							<path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/>
+					  	</svg>
+					</a>
+				</button>
 			</div>
+        </div>
+		<div class="row">
+		</div>
+		<div class="row">
+			<div class="col-xs-12 col-sm-2 col-lg-2 mb-3">
+				<label for="state" class="form-label">State</label>
+				<select class="form-select" id="state" name="state" onchange="populateDistricts()"></select>
+			</div>
+			<div class="col-xs-12 col-sm-2 col-lg-2 mb-3">
+				<label for="district" class="form-label">District</label>
+				<select class="form-select" id="district" name="district" disabled="true" onchange="populateBlocks()">
+					<option selected value="">Select a District</option>
+				</select>
+			</div>
+			<div class="col-xs-12 col-sm-2 col-lg-2 mb-3">
+				<label for="block" class="form-label">Block</label>
+				<select class="form-select" id="block" name="block" disabled="true">
+					<option selected value="">Select a Block</option>
+				</select>
+			</div>
+			<div class="col-xs-12 col-sm-2 col-lg-2 mb-3">
+				<label for="fromDate" class="form-label">From Date</label>
+				<input type="date" class="form-control" id="fromDate" name="fromDate">
+			</div>
+			<div class="col-xs-12 col-sm-2 col-lg-2 mb-3">
+				<label for="toDate" class="form-label">To Date</label>
+				<input type="date" class="form-control" id="toDate" name="toDate">
+			</div>
+			<div class="col-xs-12 col-sm-1 col-lg-1 mb-3" style="text-align: center; margin: auto;">
+				<button class="btn btn-primary" onclick="sendFormData()">Filter</button>
+			</div>
+			<div class="col-xs-12 col-sm-1 col-lg-1 mb-3" style="text-align: center; margin: auto;">
+				<button class="btn btn-warning" onclick="resetFormData()">Reset</button>
+			</div>
+		</div>
+		{% if all_data %}
         <div class="row">
-            <div class="col-xs-12 col-sm-4 col-lg-4">
+            <div class="col-xs-12 col-sm-4 col-lg-4 mb-3">
 				<div id="initiativeChartContainer" style="height: 360px; width: 100%;"></div>
             </div>
-            <div class="col-xs-12 col-sm-4 col-lg-4">
+            <div class="col-xs-12 col-sm-4 col-lg-4 mb-3">
                 <div id="chartForGroups" style="height: 360px; width: 100%;"></div>
             </div>
-			<div class="col-xs-12 col-sm-4 col-lg-4">
+			<div class="col-xs-12 col-sm-4 col-lg-4 mb-3">
                 <div id="questionAskedContainer" style="width: 100%; height: 360px;"></div>
             </div>
         </div>
-		<div class="row">
+		<div class="row mb-3">
             <div class="col-xs-12 col-sm-6 col-lg-6">
                 <div id="chartContainer" style="height: 360px; width: 100%;"></div>
                 <button class="btn invisible" id="backButton">&lt; Back</button>
@@ -503,6 +600,7 @@ button {
                 <div id="sentimentChartContainer" style="height: 360px; width: 100%;"></div>
             </div>
         </div>
+		{% endif %}
     </div>
   
   <!-- Modal -->
@@ -514,10 +612,10 @@ button {
 			<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 		</div>	
 		<div class="modal-body">
-			<div class="row" style="text-align: center;">
-				<div id="success" style="color: green;"></div>
-				<div id="error" style="color: red;"></div>
-			</div>
+				<div class="row" style="text-align: center;">
+					<div id="success" style="color: green;"></div>
+					<div id="error" style="color: red;"></div>
+				</div>
 				<div class="row">
 					<div class="col-xs-12 col-sm-12 col-lg-12 mb-3">
 						<div class="input-group">
@@ -550,9 +648,46 @@ button {
 	</div>
   </div>
 
+	<div class="modal fade" id="resetDashboard" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="resetDashboardLabel" aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h1 class="modal-title fs-5" id="exampleModalLabel">Reset Dashboard ? </h1>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>	
+				<div class="modal-body">
+					<div class="row justify-content-center">
+						<div class="message" id="reset_dashboard_error" style="color: red;"></div>
+					</div>
+					<div class="row">
+						<div class="col-xs-12 col-sm-12 col-lg-12 mb-3">
+							<div class="input-group">
+								<span class="input-group-text" for="resetData_state">State</span>
+								<select class="form-select" id="resetData_state" name="resetData_state">
+									<option selected value="">Select a State</option>
+									{% for state in all_states %}
+									<option values={{state}}>{{state}}</option>
+									{% endfor %}
+								</select>
+							</div>
+						</div>
+					</div>
+					<div class="row" style="text-align: center; margin: auto;">
+						<div class="col-xs-12 col-sm-6 col-lg-6 mb-3">
+							<button class="btn btn-primary" data-bs-dismiss="modal" aria-label="Close">No</button>
+						</div>
+						<div class="col-xs-12 col-sm-6 col-lg-6 mb-3">
+							<button class="btn btn-danger" onclick="resetDashboard()">Reset</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
     <script src="https://canvasjs.com/assets/script/jquery-1.11.1.min.js"></script>
     <script src="https://cdn.canvasjs.com/ga/canvasjs.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
 </body>
-</html>                              
+</html>

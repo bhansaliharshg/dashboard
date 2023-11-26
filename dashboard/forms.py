@@ -6,3 +6,7 @@ class SearchForm(forms.Form):
     block = forms.ChoiceField(label='Block', required=False)
     fromDate = forms.DateField(required=False)
     toDate = forms.DateField(required=False)
+
+class UploadFileForm(forms.Form):
+    state = forms.ChoiceField(label='load_data_state', required=True)
+    file = forms.FileField()
